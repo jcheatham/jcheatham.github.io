@@ -69,8 +69,10 @@
         try {
           const code = jsQR(imageData.data, canvas.width, canvas.height);
           if (code) {
-            resultDiv.textContent = "✅ QR detected:\n" + code.data;
+            resultDiv.textContent = "✅ QR detected:\n" + code;
             log("QR code detected!");
+            log(code);
+            log(code.data);
             try {
               if (code.data.startsWith("http") || code.data.startsWith("data:")) {
                 log("Navigating to: " + code.data.substring(0, 100) + "...");
