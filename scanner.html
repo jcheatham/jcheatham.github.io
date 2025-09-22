@@ -26,8 +26,23 @@
     const resultDiv = document.getElementById('result');
     const logDiv = document.getElementById('log');
 
+    let lastLogMessage = '';
+    let logRepeatCount = 0;
+
     function log(msg) {
-      logDiv.textContent += "\n" + msg;
+      if (msg === lastLogMessage) {
+        // Same message as before, increment counter
+        logRepeatCount++;
+        // Update the last line to show the repeat count
+        const lines = logDiv.textContent.split('\n');
+        lines[lines.length - 1] = `${lastLogMessage} (${logRepeatCount + 1}x)`;
+        logDiv.textContent = lines.join('\n');
+      } else {
+        // New message, reset counter and add new line
+        logRepeatCount = 0;
+        logDiv.textContent += "\n" + msg;
+        lastLogMessage = msg;
+      }
       logDiv.scrollTop = logDiv.scrollHeight;
     }
 
