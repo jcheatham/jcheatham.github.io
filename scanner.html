@@ -6,43 +6,71 @@
   <style>
     body { font-family: sans-serif; text-align: center; background: #111; color: #eee; }
     video { width: 100%; max-width: 400px; margin: 1em auto; border: 2px solid #444; border-radius: 8px; }
-    #result { margin-top: 1em; font-size: 1.2em; word-break: break-all; }
+    #result, #log {
+      margin: 1em auto; width: 90%; max-width: 400px;
+      padding: 0.5em; background: #222; border-radius: 6px;
+      font-size: 0.9em; text-align: left; white-space: pre-wrap; word-break: break-all;
+    }
+    #result { font-size: 1.1em; background: #333; color: #0f0; }
   </style>
 </head>
 <body>
   <h1>Scan Sender QR</h1>
   <video id="video" autoplay playsinline></video>
   <div id="result">Waiting for scan…</div>
+  <div id="log">Log initialized…</div>
+
   <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
   <script>
     const video = document.getElementById('video');
     const resultDiv = document.getElementById('result');
+    const logDiv = document.getElementById('log');
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => { video.srcObject = stream; });
+    function log(msg) {
+      logDiv.textContent += "\n" + msg;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    // Ask for a modest resolution, not full phone camera size
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 800 }, height: { ideal: 800 } }
+    }).then(stream => {
+        log("Camera stream started");
+        video.srcObject = stream;
+      }).catch(err => log("Camera error: " + err));
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
     function scanFrame() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          log(`Canvas resized to ${canvas.width}x${canvas.height}`);
+        }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, canvas.width, canvas.height);
-        if (code) {
-          resultDiv.textContent = code.data;
-          try {
-            // If it's a URL, follow it
-            if (code.data.startsWith("http") || code.data.startsWith("data:")) {
-              window.location.href = code.data;
+        try {
+          const code = jsQR(imageData.data, canvas.width, canvas.height);
+          if (code) {
+            resultDiv.textContent = "✅ QR detected:\n" + code.data;
+            log("QR code detected!");
+            try {
+              if (code.data.startsWith("http") || code.data.startsWith("data:")) {
+                log("Navigating to: " + code.data.substring(0, 100) + "...");
+                window.location.href = code.data;
+              }
+            } catch (e) {
+              log("Error handling QR: " + e);
             }
-          } catch (e) {
-            console.error("Error handling QR", e);
+            return; // stop scanning after first success
           }
-          return; // stop scanning after first success
+        } catch (err) {
+          log("jsQR error: " + err);
         }
+      } else {
+        log("Video not ready, state=" + video.readyState);
       }
       requestAnimationFrame(scanFrame);
     }
