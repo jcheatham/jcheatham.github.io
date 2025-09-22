@@ -18,6 +18,12 @@
   <h1>Scan Sender QR</h1>
   <video id="video" autoplay playsinline></video>
   <div id="result">Waiting for scan…</div>
+  <div id="options" style="display: none; margin: 1em auto; width: 90%; max-width: 400px;">
+    <button id="navigateBtn" style="margin: 0.5em; padding: 0.5em 1em; background: #0a0; color: white; border: none; border-radius: 4px; cursor: pointer;">Navigate to URL</button>
+    <button id="embedBtn" style="margin: 0.5em; padding: 0.5em 1em; background: #00a; color: white; border: none; border-radius: 4px; cursor: pointer;">Embed Content</button>
+    <button id="copyBtn" style="margin: 0.5em; padding: 0.5em 1em; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer;">Copy to Clipboard</button>
+  </div>
+  <div id="embedded" style="display: none; margin: 1em auto; width: 90%; max-width: 400px; padding: 0.5em; background: #222; border-radius: 6px; border: 1px solid #444;"></div>
   <div id="log">Log initialized…</div>
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
@@ -25,6 +31,13 @@
     const video = document.getElementById('video');
     const resultDiv = document.getElementById('result');
     const logDiv = document.getElementById('log');
+    const optionsDiv = document.getElementById('options');
+    const embeddedDiv = document.getElementById('embedded');
+    const navigateBtn = document.getElementById('navigateBtn');
+    const embedBtn = document.getElementById('embedBtn');
+    const copyBtn = document.getElementById('copyBtn');
+
+    let scannedData = null;
 
     let lastLogMessage = '';
     let logRepeatCount = 0;
@@ -69,18 +82,13 @@
         try {
           const code = jsQR(imageData.data, canvas.width, canvas.height);
           if (code) {
-            resultDiv.textContent = "✅ QR detected:\n" + code;
+            scannedData = code.data;
+            resultDiv.textContent = "✅ QR detected:\n" + code.data.substring(0, 100) + (code.data.length > 100 ? "..." : "");
             log("QR code detected!");
-            log(code);
-            log(code.data);
-            try {
-              if (code.data.startsWith("http") || code.data.startsWith("data:")) {
-                log("Navigating to: " + code.data.substring(0, 100) + "...");
-                window.location.href = code.data;
-              }
-            } catch (e) {
-              log("Error handling QR: " + e);
-            }
+            log("Data: " + code.data.substring(0, 200) + (code.data.length > 200 ? "..." : ""));
+
+            // Show options to user
+            optionsDiv.style.display = 'block';
             return; // stop scanning after first success
           }
         } catch (err) {
@@ -92,6 +100,56 @@
       requestAnimationFrame(scanFrame);
     }
     requestAnimationFrame(scanFrame);
+
+    // Button event handlers
+    navigateBtn.onclick = () => {
+      if (scannedData && (scannedData.startsWith("http") || scannedData.startsWith("data:"))) {
+        log("Navigating to: " + scannedData.substring(0, 100) + "...");
+        window.location.href = scannedData;
+      } else {
+        log("Cannot navigate: data is not a valid URL");
+      }
+    };
+
+    embedBtn.onclick = () => {
+      if (scannedData) {
+        try {
+          if (scannedData.startsWith("data:text/html")) {
+            // Extract HTML content from data URL
+            const base64Data = scannedData.split(',')[1];
+            const htmlContent = atob(base64Data);
+            embeddedDiv.innerHTML = htmlContent;
+            embeddedDiv.style.display = 'block';
+            log("HTML content embedded");
+          } else if (scannedData.startsWith("http")) {
+            // For HTTP URLs, show a preview iframe
+            embeddedDiv.innerHTML = `<iframe src="${scannedData}" style="width: 100%; height: 300px; border: none;"></iframe>`;
+            embeddedDiv.style.display = 'block';
+            log("URL embedded in iframe");
+          } else {
+            // For other data, show as text
+            embeddedDiv.textContent = scannedData;
+            embeddedDiv.style.display = 'block';
+            log("Data displayed as text");
+          }
+        } catch (e) {
+          log("Error embedding content: " + e);
+          embeddedDiv.textContent = "Error: " + e.message;
+          embeddedDiv.style.display = 'block';
+        }
+      }
+    };
+
+    copyBtn.onclick = async () => {
+      if (scannedData) {
+        try {
+          await navigator.clipboard.writeText(scannedData);
+          log("Data copied to clipboard");
+        } catch (e) {
+          log("Failed to copy to clipboard: " + e);
+        }
+      }
+    };
   </script>
 </body>
 </html>
