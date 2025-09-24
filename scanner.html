@@ -59,7 +59,7 @@
       logDiv.scrollTop = logDiv.scrollHeight;
     }
 
-    // Ask for a modest resolution, not full phone camera size
+    // Ask for a modest resolution
     navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment", width: { ideal: 800 }, height: { ideal: 800 } }
     }).then(stream => {
@@ -118,9 +118,27 @@
             // Extract HTML content from data URL
             const base64Data = scannedData.split(',')[1];
             const htmlContent = atob(base64Data);
-            embeddedDiv.innerHTML = htmlContent;
+
+            // Create a temporary container to parse the HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlContent;
+
+            // Clear the embedded div and append the parsed content
+            embeddedDiv.innerHTML = '';
+            embeddedDiv.append(...tempDiv.childNodes);
             embeddedDiv.style.display = 'block';
-            log("HTML content embedded");
+
+            // Extract and execute any script tags
+            const scripts = tempDiv.querySelectorAll('script');
+            scripts.forEach(script => {
+              const newScript = document.createElement('script');
+              newScript.textContent = script.textContent;
+              document.head.append(newScript);
+              // Remove the script after execution to avoid duplicates
+              document.head.removeChild(newScript);
+            });
+
+            log("HTML content embedded and scripts executed");
           } else if (scannedData.startsWith("http")) {
             // For HTTP URLs, show a preview iframe
             embeddedDiv.innerHTML = `<iframe src="${scannedData}" style="width: 100%; height: 300px; border: none;"></iframe>`;
